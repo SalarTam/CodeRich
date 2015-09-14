@@ -1,0 +1,34 @@
+﻿ int status = 0;
+            if (_UserMasterId > 0)
+            {
+                var user = BusinessUserProvider.Instance.GetUserByUserId(_UserMasterId);
+                if (user.BusinessUserId > 0 && (user.Status == 1 || user.Status == 3))
+                {
+                    var sb = new StringBuilder();
+                    sb.AppendFormat("BUD={0};UD={1};CD={2};EM={3};NM={4};AV={5};RD={6}", user.BusinessUserId, user.BUserId, user.CompanyId, CookieEncode(user.Email), CookieEncode(user.Name), CookieEncode(user.Avatar), user.Role.RoleId);
+                    string buserCookie = UserCookieEncrypt.EncryptData(sb.ToString());
+                    var cookies = new CookieManager();
+                    cookies.setCookie("businessInfo", buserCookie, DateTime.Now.AddDays(30), AppSettingUtility.CookieDomain, "/");
+                    cookies.setCookie("RDsUserInfo", buserCookie, DateTime.Now.AddDays(30), AppSettingUtility.CookieDomain, "/");
+                    status = 1;
+                }
+                else
+                {
+                    CookieManager cm = new CookieManager();
+                    cm.deleteCookie("SJSsUserInfo", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("JSisLogin", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("JSsUserInfo", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("JSpUserInfo", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("JSShowname", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("JsNewlogin", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("JSloginnamecookie", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("browsecount", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("postcount", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("mailcount", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("businessInfo", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("RDsUserInfo", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("RDpUserInfo", AppSettingUtility.CookieDomain);
+                }
+            }
+            string result = "\"status\":{0},\"error\":\"{1}\"";
+            return Content("{" + String.Format(result, status, "") + "}");

@@ -1,0 +1,254 @@
+﻿ public class BaseController:Controller
+    {
+        public UserCookieObject _UserInfo = null;
+
+        public LogManageProvider logProvider = null;
+        public BaseController()
+        {
+            _UserInfo = GetCurrentUser();
+            logProvider = new LogManageProvider();
+        }
+
+        #region 未捕获异常处理
+        /// <summary>
+        /// Creator: 李洋
+        /// Data: 2012-5-22
+        /// Function: 未捕获异常处理
+        /// </summary>
+        /// <param name="filterContext"></param>
+        protected override void OnException(ExceptionContext filterContext)
+        {
+            //LogHelper.Error(filterContext.Exception);
+        }
+
+        #endregion
+
+        #region *******************测试数据*******************************
+        private string CookieEncode(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return "";
+            return UserCookieEncrypt.CookieEncode(value);
+        }
+
+
+        private void SetUserCookie()
+        {
+            int status = 0;
+            var user = BusinessUserProvider.Instance.GetUserByUserId(103023496);
+            if (user.BusinessUserId > 0)
+            {
+                var sb = new StringBuilder();
+                sb.AppendFormat("BUD={0};UD={1};CD={2};EM={3};NM={4};AV={5};RD={6}", user.BusinessUserId, user.BUserId, user.CompanyId, CookieEncode(user.Email), CookieEncode(user.Name), CookieEncode(user.Avatar), user.Role.RoleId);
+                string buserCookie = UserCookieEncrypt.EncryptData(sb.ToString());
+                var cookies = new CookieManager();
+                cookies.setCookie("businessInfo", buserCookie, DateTime.Now.AddDays(1), AppSettingUtility.CookieDomain, "/");
+                status = 1;
+            }
+        }
+
+        #endregion
+
+
+        #region 获取当前用户
+        /// <summary>
+        /// 获取当前用户
+        /// </summary>
+        /// <returns></returns>
+        public UserCookieObject GetCurrentUser()
+        {
+            if (_UserInfo == null)
+            {
+                //校聘改版，B端用户采用passport，通过判断cookie来判断，用户在passport是否登录成功
+                var cookiegetManager = new CookieManager();
+                var cookieidx = cookiegetManager.getCookieValue("RDsUserInfo");
+                if (string.IsNullOrEmpty(cookieidx))
+                {
+                    cookieidx = cookiegetManager.getCookieValue("RDpUserInfo");
+                }
+                var getuser = UserManage.GetUserInfoByCookie(cookieidx);
+                //getuser = new UserCookieObject();
+                //getuser.UserID = "270";                
+                if (getuser != null)
+                {
+                    SetCookieForLogin(getuser);
+                }
+                
+
+                _UserInfo = UserManage.GetUserInfo();
+
+            }
+            if (_UserInfo != null && !string.IsNullOrEmpty(_UserInfo.UserRoleId))
+            {
+                var roleList = RoleProvider.Instance.GetRolesList();
+                if (roleList.Exists(p => p.RoleId == _UserInfo.UserRoleId.ToInt(0)))
+                {
+                    _UserInfo.UserRole = roleList.Find(p => p.RoleId == _UserInfo.UserRoleId.ToInt(0));
+                }
+                
+            }
+            return _UserInfo;
+        }
+
+        
+        /// <summary>
+        /// 获取当前用户ID，如果未登录返回0
+        /// </summary>
+        /// <returns></returns>
+        public long _UserMasterId
+        {
+            get
+            {
+                return _UserInfo == null ? 0 : long.Parse(_UserInfo.UserID);
+            }
+        }
+        /// <summary>
+        /// 中小企业B端用户ID
+        /// </summary>
+        public long _smeBusinessId
+        {
+            get { return _UserInfo == null ? 0 : _UserInfo.BusinessId; }
+        }
+
+        #endregion
+
+        #region 判断是否登录
+
+        /// <summary>
+        /// Creator: edmund.li
+        /// Data: 2012-6-11
+        /// Function: 判断是否登录
+        /// </summary>
+        /// <returns>true:已登录 false:未登录</returns>
+        public bool IsLogin()
+        {
+            //return _UserInfo != null;
+            bool isLogin = false;
+            if (_UserInfo != null)
+            {
+                isLogin = !string.IsNullOrEmpty(_UserInfo.UserID) && _UserInfo.BusinessId > 0;
+            }
+            return isLogin;
+        }
+
+        #endregion
+
+        #region 获取用户请求信息
+        /// <summary>
+        /// 获取用户请求信息
+        /// </summary>
+        /// <returns></returns>
+        public string GetUserRequestInfo()
+        {
+            string urlReferrer = string.Empty;
+            if (Request.UrlReferrer != null)  // 
+            {
+                urlReferrer = Request.UrlReferrer.ToString();
+            }
+            //返回数据
+            return
+                string.Format(
+                    "Request.UrlReferrer:{0},Request.Url:{1},Request.Browser.Type:{2},Request.Browser.Browser:{3},Request.Browser.Version:{4}",
+                    urlReferrer, Request.Url, Request.Browser.Type, Request.Browser.Browser,
+                    Request.Browser.Version);
+        }
+        #endregion
+
+        #region 添加日志
+        /// <summary>
+        /// 添加日志 
+        /// </summary>
+        /// <param name="operatingLog">日志</param>
+        /// <returns>返回日志ID</returns>
+        public int AddOperatingLog(OperatingLogs operatingLog)
+        {
+            if (string.IsNullOrEmpty(operatingLog.ClientIP))
+            { 
+                operatingLog.ClientIP = HttpContext.Request.UserHostAddress; 
+            }
+
+            operatingLog.UserID = long.Parse(_UserInfo.UserID);
+            if (!(operatingLog.CompanyID > 0))
+            {
+                operatingLog.CompanyID = _UserInfo.CompanyId;
+            }
+            //获取模块名称
+            return logProvider.AddOperatingLog(operatingLog);
+        }
+        #endregion
+
+        #region 添加日志详细内容
+        /// <summary>
+        /// 添加日志详细内容
+        /// </summary>
+        /// <param name="operatingLogsDetail">日志详细内容</param>
+        /// <returns>返回影响行数</returns>
+        public int AddOperatingLogDetail(OperatingLogsDetail operatingLogsDetail)
+        {
+            if (!(operatingLogsDetail.UserID >0))
+            {
+                operatingLogsDetail.UserID = long.Parse(_UserInfo.UserID); 
+            }
+            if (!(operatingLogsDetail.LogContactID > 0))
+            {
+                operatingLogsDetail.LogContactID = 0;
+            }
+            return logProvider.AddOperatingLogDetail(operatingLogsDetail);
+        }
+        #endregion
+
+        #region 校聘改版B端登录
+        private void SetCookieForLogin(UserCookieObject userinfo)
+        {
+            if (userinfo != null && long.Parse(userinfo.UserID) > 0)
+            {
+                var user = BusinessUserProvider.Instance.GetUserByUserId(long.Parse(userinfo.UserID));
+                if (user.BusinessUserId > 0 && (user.Status == 1 || user.Status == 3))
+                {
+                    var sb = new StringBuilder();
+                    sb.AppendFormat("BUD={0};UD={1};CD={2};EM={3};NM={4};AV={5};RD={6}", user.BusinessUserId, user.BUserId, user.CompanyId, CookieEncode(user.Email), CookieEncode(user.Name), CookieEncode(user.Avatar), user.Role.RoleId);
+                    string buserCookie = UserCookieEncrypt.EncryptData(sb.ToString());
+                    var cookies = new CookieManager();
+                    cookies.setCookie("businessInfo", buserCookie, DateTime.Now.AddDays(30), AppSettingUtility.CookieDomain, "/");
+
+                    var userCookies = EsbApiHelper.GetCookieByUserId(userinfo.UserID.ToInt64());
+                    if (userCookies != null)
+                    {
+                        var YuInfo = UserManage.GetUserInfoByCookie(userCookies.MyCookie);
+
+                        if (!string.IsNullOrEmpty(userCookies.MyCookie))
+                            cookies.setCookie("JSsUserInfo", userCookies.MyCookie, AppSettingUtility.CookieDomain, "/");
+
+                        if (!string.IsNullOrEmpty(YuInfo.UserID))
+                            cookies.setCookie("JsNewlogin", YuInfo.UserID, AppSettingUtility.CookieDomain, "/");
+
+                        if (!string.IsNullOrEmpty(YuInfo.LoginName))
+                            cookies.setCookie("JSShowname", YuInfo.LoginName, AppSettingUtility.CookieDomain, "/");
+                    }
+
+
+                }
+                else
+                {
+                    CookieManager cm = new CookieManager();
+                    cm.deleteCookie("SJSsUserInfo", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("JSisLogin", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("JSsUserInfo", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("JSpUserInfo", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("JSShowname", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("JsNewlogin", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("JSloginnamecookie", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("browsecount", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("postcount", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("mailcount", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("businessInfo", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("RDsUserInfo", AppSettingUtility.CookieDomain);
+                    cm.deleteCookie("RDpUserInfo", AppSettingUtility.CookieDomain);
+                }
+            }
+        }
+      
+
+        #endregion
+
+    }
