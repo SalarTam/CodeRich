@@ -51,7 +51,7 @@ namespace Code.Configuration
             get
             {
                 string hostName = Dns.GetHostName();
-                string ip = Dns.Resolve(hostName).AddressList[0].ToString();
+                string ip = Dns.GetHostEntry(hostName).AddressList[0].ToString();
                 return IPAddress.Parse(ip);
             }
         }
