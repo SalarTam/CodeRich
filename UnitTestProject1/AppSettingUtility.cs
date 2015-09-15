@@ -21,5 +21,14 @@ namespace UnitTestProject1
 
             }
         }
+        public static string environment
+        {
+            get
+            {
+                return GetRemoteAppSettingConfig("environment");
+
+            }
+        }
+        
     }
 }
