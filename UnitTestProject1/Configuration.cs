@@ -23,7 +23,8 @@ namespace UnitTestProject1
         [TestMethod]
         public void DbConnctionUtilityTest()
         {
-            var evaregdb=CampusConnectionUtility.Evareg;
+            var evaregdb = CampusConnectionUtility.Evareg;
+            RemoteConfigurationManager.Instance.InvalidConfig("campusConnections", 1);
             var ss = "";
         }
     }
