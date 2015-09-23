@@ -11,7 +11,7 @@ namespace UnitTestProject1
     public class MemCachedCollection
     {
         [XmlElement("Item")]
-        public MemCachedEntity Items { get; set; }
+        public MemCachedEntity Items { get; set; } 
 
     }
 
